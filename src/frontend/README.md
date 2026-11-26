@@ -24,7 +24,7 @@ src/
 | `/mine` | 我的发布与申请 | 学生、拾取者 | UC-08、UC-16 |
 | `/claims/inbox` | 待初审（拾取者） | 拾取者 | UC-17 |
 | `/handover/:id` | 交接核销 | 双方 | UC-19 |
-| `/admin/workbench` | 审核工作台 | 审核员 | UC-32 |
+| `/admin/workbench` | 需跟进筛选（v0.1）；完整工作台（v0.2） | 值班老师、分派案件的志愿者 | UC-32 |
 | `/admin/items` | 终审队列 | 审核员 | UC-18 |
 | `/admin/reports` | 举报处置 | 审核员 | UC-23 |
 | `/admin/stats` | 统计看板 | 审核员、管理员 | UC-30 |

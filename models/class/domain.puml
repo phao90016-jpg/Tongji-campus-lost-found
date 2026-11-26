@@ -123,12 +123,11 @@ package "认领与审核" {
     reason_code
     comment
   }
-  class HandoverToken {
-    code_hash
-    expires_at
-    consumed_at
-    resend_count
-    + verifyAndConsume(code) : bool
+  class HandoverConfirmation {
+    claim_id
+    item_id
+    confirmed_by
+    confirmed_at
   }
   class ItemStatusLog {
     target_type
@@ -236,7 +235,7 @@ User "1" -- "0..*" ClaimApplication : 提交
 ClaimApplication "1" *-- "0..3" ClaimAnswer
 VerificationQuestion "1" -- "0..*" ClaimAnswer
 ClaimApplication "1" -- "0..2" ReviewRecord : 初审/终审
-ClaimApplication "1" -- "0..1" HandoverToken
+ClaimApplication "1" -- "0..1" HandoverConfirmation
 LostItem ..> ClaimApplication : 相似匹配
 ItemStatusLog ..> LostItem : 记录迁移
 ItemStatusLog ..> ClaimApplication : 记录迁移
@@ -266,10 +265,9 @@ note bottom of ClaimApplication
   （数据库部分唯一索引 uq_claim_active 保证）
 end note
 
-note bottom of HandoverToken
-  只存 sha256(code + claim_id)；
-  明文仅在创建/重发时返回一次；
-  72 小时有效、一次性核销
+note bottom of HandoverConfirmation
+  仅获准领取人可确认，一案一条。
+  重复确认返回原记录。
 end note
 
 @enduml

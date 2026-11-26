@@ -16,7 +16,7 @@
 | 分页 | 游标分页：`?cursor=<id>&limit=20`，响应含 `next_cursor`（为 `null` 表示到底）；**不用 OFFSET** |
 | 错误格式 | `{"error": {"code": "CLAIM_CONFLICT", "message": "该物品已有认领在审核中", "details": {}}}` |
 | 越权 | 统一 `403`，`code=FORBIDDEN`，**响应不体现资源是否存在** |
-| 幂等 | 交接核销、通知投递、状态迁移为幂等操作；重复调用返回当前状态而非报错（交接码除外，见 §2.5） |
+| 幂等 | 同一领取人的重复交接确认返回原结果；通知投递按事件去重，审核决策等状态迁移按 §2.5 校验版本 |
 | 审计 | 标记 🔒 的接口写审计日志 |
 
 ### 1.1 错误码
@@ -29,10 +29,11 @@
 | `VALIDATION_ERROR` | 422 | 字段校验失败，`details.fields` 给出字段级原因 |
 | `ITEM_STATE_INVALID` | 409 | 当前状态不允许该操作（状态机拒绝） |
 | `CLAIM_CONFLICT` | 409 | 该物品已有进行中申请 / 申请已被处理 |
-| `CLAIM_ALREADY_EXISTS` | 409 | 本人已对该物品提交过申请 |
-| `HANDOVER_EXPIRED` | 410 | 交接码已过期 |
-| `HANDOVER_CONSUMED` | 409 | 交接码已被核销 |
-| `HANDOVER_LOCKED` | 423 | 连续输错 5 次，锁定 30 分钟 |
+| `CLAIM_ALREADY_EXISTS` | 409 | 本人仍有进行中申请，或已用完该物品的提交资格 |
+| `PUBLICATION_ENDED` | 409 | 公示到期，停止受理新申请或重申 |
+| `PICKUP_ARRANGEMENT_REQUIRED` | 409 | 领取安排尚未填写或已失效，提示保管方更新 |
+| `EVIDENCE_CHANGED` | 409 | 招领的核验信息已更新；刷新信息并保留表单草稿 |
+| `EVIDENCE_LOCKED` | 409 | 存在进行中申请，核验字段或直接关闭已锁定 |
 | `CREDIT_TOO_LOW` | 403 | 信用分不足，`details.min` 给出阈值 |
 | `RATE_LIMITED` | 429 | 举报/订阅等超过次数限额 |
 | `EXTERNAL_UNAVAILABLE` | 502 | 外部系统（存储/通知）不可用，可重试 |
@@ -50,7 +51,8 @@
 | GET | `/api/v1/auth/sso/callback` | 授权回调，换 token 建会话 | 匿名 | REQ-F-001 |
 | GET | `/api/v1/auth/me` | 当前用户 + 角色 + 能力 + 信用分 | 已登录 | REQ-F-001 |
 | POST | `/api/v1/auth/logout` | 退出（token 加入吊销表） | 已登录 | REQ-F-001 |
-| PATCH | `/api/v1/auth/me` | 改联系方式、可见性开关 | 已登录 | REQ-F-003 |
+| GET | `/api/v1/me/profile` | 个人资料页，返回本人手机号 | 本人 | REQ-F-003 |
+| PATCH | `/api/v1/auth/me` | 编辑本人资料与手机号 | 本人 | REQ-F-003 |
 | DELETE | `/api/v1/auth/me` | 注销并删除个人数据 | 已登录 | REQ-F-003 🔒 |
 
 `GET /auth/me` 响应示例：
@@ -83,11 +85,11 @@
 | 方法 | 路径 | 说明 | 角色 | 需求 |
 |---|---|---|---|---|
 | POST | `/api/v1/items` | 发布失物或招领 | student / finder | REQ-F-004、REQ-F-005 |
-| GET | `/api/v1/items` | 检索列表（见 §3 参数） | 已登录 | REQ-F-009、REQ-F-010 |
-| GET | `/api/v1/items/{id}` | 详情（按角色裁剪字段） | 已登录 | REQ-F-010 |
-| PATCH | `/api/v1/items/{id}` | 编辑（仅本人，`claiming` 后禁改特征） | 本人 | REQ-F-007 |
-| POST | `/api/v1/items/{id}/close` | 下架 / 关闭 | 本人 | REQ-F-007 |
-| POST | `/api/v1/items/{id}/images` | 上传图片（base64） | 本人 | REQ-F-006 |
+| GET | `/api/v1/items` | 检索列表（见 §2.4；公开检索剔除到期招领） | 已登录 | REQ-F-009、REQ-F-010 |
+| GET | `/api/v1/items/{id}` | 详情（含核验版本；到期旧链接仅显示结束摘要，关闭后的举报入口单独裁剪） | 已登录 | REQ-F-010 |
+| PATCH | `/api/v1/items/{id}` | 编辑（仅本人，存在进行中申请时锁定核验字段） | 本人 | REQ-F-007 |
+| POST | `/api/v1/items/{id}/close` | 下架 / 关闭（存在进行中申请时 409） | 本人 | REQ-F-007 |
+| POST | `/api/v1/items/{id}/images` | 上传图片（base64；核验锁定时禁止替换或新增） | 本人 | REQ-F-006 |
 | GET | `/api/v1/items/{id}/images/{image_id}/url` | 取预签名 URL（`variant=masked|original`） | 按角色 | REQ-F-006 🔒 |
 | GET | `/api/v1/items/{id}/similar` | 相似物品 Top5 | 已登录 | REQ-F-011 |
 | POST | `/api/v1/items/{id}/favorite` | 收藏 | 已登录 | REQ-F-025 |
@@ -122,10 +124,12 @@
 |---|---|---|---|---|
 | title / description / color / marks | ✓ | ✓ | ✓ | ✓ |
 | owner 姓名 / 院系 | ✓ | ✓ | ✓ | ✓ |
-| owner 手机号 | `138****8000` | 原文 | 原文 | 原文 |
+| 私人手机号 | 脱敏或省略 | 物品详情脱敏；个人资料页可读本人号码 | 脱敏或省略 | 仅通过已授权的单案读取并审计 |
 | 图片 | 仅 masked URL | 两者 | 两者 | 两者 |
 | 核验问题 | 只有问题文本 | 只有问题文本 | 问题 + 答案 | 问题 + 答案 |
 | 认领申请列表 | ✗ | 仅自己的 | 该条全部 | 该条全部 |
+
+旧链接到达收件截止后，公共详情只返回结束摘要及 `can_apply=false`，已有申请通过按归属授权的申请详情继续办理。列表、相似推荐和普通详情使用同一截止判断。
 
 **图片上传（base64）**
 
@@ -170,47 +174,52 @@
 
 | 方法 | 路径 | 说明 | 角色 | 需求 |
 |---|---|---|---|---|
-| POST | `/api/v1/items/{id}/claims` | 提交认领申请 | student | REQ-F-013 |
+| POST | `/api/v1/items/{id}/claims` | 提交或限一次重申，携带 `evidence_revision`；重申提供 `previous_claim_id` 和说明 | 学生 | REQ-F-013、REQ-F-014 |
 | GET | `/api/v1/claims` | `role=applicant` 我提交的 / `role=owner` 我收到的 | 已登录 | REQ-F-015 |
-| GET | `/api/v1/claims/{id}` | 申请详情（含审核记录、交接码状态） | 相关方 / reviewer | REQ-F-015、REQ-F-016 |
-| POST | `/api/v1/claims/{id}/withdraw` | 撤回 | 申请人 | REQ-F-014 |
-| POST | `/api/v1/claims/{id}/first-review` | 初审 | 发布人（finder） | REQ-F-015 |
-| POST | `/api/v1/claims/{id}/final-review` | 终审 | reviewer | REQ-F-016 🔒 |
-| POST | `/api/v1/claims/{id}/handover` | 核销交接码 | 相关方 | REQ-F-017 |
-| POST | `/api/v1/claims/{id}/handover/resend` | 重发交接码（≤2 次） | 相关方 | REQ-F-017 |
+| GET | `/api/v1/claims/{id}` | 申请详情、补交截止、等待环节、领取安排与交接进度 | 按归属 / 有权限的审核员 | REQ-F-014～018 |
+| POST | `/api/v1/claims/{id}/withdraw` | 撤回待初审、待补充或待终审申请 | 申请人 | REQ-F-014 |
+| POST | `/api/v1/claims/{id}/first-review` | 建议通过／驳回或请求补交 | 招领发布人 | REQ-F-015 |
+| POST | `/api/v1/claims/{id}/final-review` | 通过／驳回或请求补交 | 有权限的审核员 | REQ-F-016 |
+| POST | `/api/v1/claims/{id}/supplement` | 提交一次补充材料 | 申请人 | REQ-F-015、REQ-F-016、REQ-F-018 |
+| POST | `/api/v1/claims/{id}/handover` | 确认已领取；无请求体，重复提交返回同一结果 | 获准领取人 | REQ-F-017 |
+| PATCH | `/api/v1/claims/{id}/pickup-arrangement` | 更新本案领取点、日期、可领时段与公用服务点；校验版本 | 记录中的保管方 | REQ-F-017、REQ-F-018 |
+| POST | `/api/v1/claims/{id}/follow-up` | 催办或登记获授权案件的跟进结果 | 分派到该案的志愿者／值班老师 | REQ-F-024 |
+| POST | `/api/v1/admin/claims/{id}/contact-read` | 按单案读取一位参与方手机号，须填目标人及业务原因并写审计 | 有该案授权且具备 `pii:read` 的老师 | REQ-F-003、REQ-N-003 |
+| POST | `/api/v1/claims/{id}/take-over` | 登记未取得初审原因、指派终审老师，将待初审转待终审 | 值班老师 | REQ-F-016、REQ-F-024 |
+| POST | `/api/v1/claims/{id}/close-unfulfilled` | 逾期核实未交付后结束认领，必填说明 | 有权限的审核员 | REQ-F-017 |
+| POST | `/api/v1/claims/{id}/close-for-correction` | 根据发布人所报核验错误结束在审申请，必填说明；待领取另走未交付核实 | 有权限的审核员 | REQ-F-007 |
+
+编辑与提交在同一物品事务内校验。服务端受理时间达到首次公示后 60 个自然日，新的申请或重申返回 `409 PUBLICATION_ENDED`，不受定时任务是否已更新状态影响。核验版本不匹配返回 `409 EVIDENCE_CHANGED`。已受理的申请继续使用已保存的证据。
+
+**跟进和接手**
+
+跟进只记催办及附件以外的业务摘要，和申请主状态分开存放。志愿者只读本人分派案件的脱敏摘要，不能改变申请结论。接手请求含 `version`、`reason` 与指定老师；仅仍待初审且达到 48 小时跟进门槛时可入终审。和原初审提交竞争状态、版本，失败一方返回 409 并刷新。
+
+**领取安排**
+
+保管方用 `PATCH` 保存本案安排，字段为 `location`、`pickup_from`、`pickup_until`、`service_point_id`、`version`。日期由起止时间表达，公用联系值来自已核实的服务点配置，备注不接受私人联系方式。老师批准前校验安排仍有效，缺失或过期返回 `409 PICKUP_ARRANGEMENT_REQUIRED`。通过后双方读取同一份最新 `pickup_arrangement`，含 `updated_at`；改期按新版本通知。
 
 **提交申请**
 
 ```json
 {
-  "reason": "3 月 14 日上午在图书馆三楼自习时丢失",
+  "reason": "上午在图书馆自习时丢失",
   "answers": [{"question_id": 7, "answer": "透明蓝色"}],
-  "materials": "购买记录截图：https://example.com/order.png",
-  "expected_handover_at": "2026-03-15T10:00:00Z"
+  "materials": "已提交的购买凭证引用",
+  "expected_handover_at": "2026-11-27T10:00:00+08:00",
+  "evidence_revision": 3
 }
 ```
 
-**初审 / 终审请求**
+**审核和补交**
 
-```json
-{"decision": "suggest_approve", "reason_code": "answer_match", "comment": "核验问题答对，建议通过"}
-{"decision": "approve", "reason_code": "verified", "comment": "材料充分，通过"}
-```
+初审 `decision` 为 `suggest_approve | suggest_reject | request_more`，终审为 `approve | reject | request_more`。提交时带当前 `version` 及 `comment`。两种初审建议都转 `pending_final`。要求补交时 `comment` 须说明缺项，响应和详情返回 `supplement_deadline_at`。补交请求携带 `materials`，截止前成功时回到原审核环节。补交超时、状态已变更或未获补交机会返回 409。
 
-`decision` 取值：初审 `suggest_approve | suggest_reject | request_more`；终审 `approve | reject | request_more`。
-`reason_code` 取值见 `GET /api/v1/meta` 的 `reject_reasons`。
+**终审通过与交接确认**
 
-**终审通过响应（含交接码明文，仅此一次）**
-
-```json
-{
-  "claim": {"id": 31, "status": "approved"},
-  "handover": {"code": "K7F2Q9", "expires_at": "2026-03-17T08:00:00Z", "resend_count": 0},
-  "rejected_others": [32, 33]
-}
-```
-
-> 交接码明文只在创建时返回一次，之后只存哈希；重发会生成新码并作废旧码。
+- 终审通过返回申请状态 `approved`、发布状态 `claiming` 及 `handover_reminder_at`（通过后第 72 小时）。详情根据归属返回 `pickup_arrangement`、`can_confirm_handover` 与 `handover_overdue`。
+- 领取确认首次成功和同一领取人后续重试均返回 200，含申请号、物品号、`completed`、`handed_over`、`confirmed_by` 和原 `confirmed_at`。先校验身份归属，无权确认返回 403，申请已失效等状态返回 409。
+- 申请人从详情可见当前状态、补交截止、剩余重申资格及交接安排。无关用户不会看到申请人身份或材料。
 
 ### 2.6 举报、处置与申诉
 
@@ -223,6 +232,8 @@
 | POST | `/api/v1/appeals` | 提交申诉 | 被处置人 | REQ-F-022 |
 | GET | `/api/v1/admin/appeals` | 申诉队列 | reviewer | REQ-F-022 |
 | POST | `/api/v1/admin/appeals/{id}/review` | 复核（非原处置人） | reviewer | REQ-F-022 🔒 |
+
+v0.2 允许对已交接或已关闭的招领索引提交 `impersonation`。以交接确认时间起算 30 天，使用原招领链接或编号定位，旧链接只返回必要的招领摘要和是否可举报；举报记录关联同一发布且保留原交接状态。窗口结束时提示经招领处确认的线下渠道。
 
 处置 `action`：`warning | unpublish | ban7 | ban_forever | dismiss`。
 处置响应含信用分变动：`{"action": "warning", "credit": {"before": 100, "after": 90}}`。
@@ -245,16 +256,24 @@
 | GET | `/api/v1/stats/me` | 我的发布数、申请数、通过率、信用分 | 已登录 | REQ-F-025 |
 | GET | `/api/v1/admin/stats/overview` | 管理看板（`?period=week|month|all`） | reviewer / admin | REQ-F-025 |
 | GET | `/api/v1/admin/stats/export` | 导出 CSV | admin | REQ-F-025 🔒 |
-| GET | `/api/v1/admin/workbench/queue` | 审核工作台队列（含超时标记） | reviewer | REQ-F-024 |
+| GET | `/api/v1/admin/workbench/queue` | v0.1 可查待终审及需跟进；v0.2 添加完整队列和累计耗时标色 | 值班老师；志愿者限本人分派待办摘要 | REQ-F-024 |
 
-看板响应示例：
+跟进记录包含当前待办原因、等待环节、责任人、进入待办的时间和最新跟进结果。私密核验材料、手机号和申请人历史不出现在志愿者响应。
+
+统计按 [SRS §5.1](../02-需求规约/SRS-v1.0.md) 的同批口径，返回各指标成熟状态、分母和剔除数。未成熟或暂无样本时比率为 `null`，通过 `review_sla_state` 区分。
+
+看板响应示例（已成熟的提交批次）：
 
 ```json
 {
   "period": "month",
   "published": 486, "claims": 298, "completed": 182,
   "claim_success_rate": 0.611,
-  "median_handle_hours": 11.4,
+  "median_user_wait_hours": 17.4,
+  "median_review_hours": 11.4,
+  "review_sla_state": {"within_24h": "ready", "overdue_48h": "ready"},
+  "review_sla_population": {"within_24h": 290, "overdue_48h": 292},
+  "review_sla_excluded": {"within_24h": 8, "overdue_48h": 6},
   "within_24h_rate": 0.93,
   "overdue_48h_rate": 0.04,
   "category_distribution": [{"name": "证件卡类", "count": 204}],

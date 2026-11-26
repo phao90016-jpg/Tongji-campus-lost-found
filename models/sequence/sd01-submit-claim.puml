@@ -22,30 +22,34 @@ participant "认领服务\nclaims.create" as SVC
 database "SQLite/PostgreSQL" as DB
 participant "通知服务\nnotify.enqueue" as NOTIFY
 
-U -> API : POST /items/{id}/claims
+U -> API : POST /items/{id}/claims {evidence_revision, ...}
 API -> AUTH : 校验登录、能力、信用分
 AUTH --> API : OK（credit_score >= 40）
 API -> SVC : create_claim(item_id, applicant, payload)
 
 SVC -> DB : BEGIN IMMEDIATE
-SVC -> DB : SELECT item (status, owner_id)
+SVC -> DB : 读取物品（状态、归属、首次公示时间、核验版本）
 alt item.status != 'published'
   SVC --> API : 409 ITEM_STATE_INVALID
+else 已到收件截止
+  SVC --> API : 409 PUBLICATION_ENDED
 else 目标是本人发布
   SVC --> API : 403 FORBIDDEN
+else 核验版本或重申资格不符
+  SVC --> API : 409，提示刷新或查看原申请
 else 正常
   SVC -> DB : SELECT claim WHERE item_id=? AND status IN (进行中)
   alt 已有进行中申请（含并发写入）
     SVC --> API : 409 CLAIM_CONFLICT
   else 无
-    SVC -> DB : INSERT claim_application(status='pending_first')
+    SVC -> DB : 写待初审申请并关联证据版本
     Note right of DB
       部分唯一索引 uq_claim_active
       并发下第二次 INSERT 抛 IntegrityError
       → 捕获后返回 409
     end note
-    SVC -> DB : INSERT item_status_log、COMMIT
-    SVC -> NOTIFY : 通知拾取者（站内必达 + 通道投递）
+    SVC -> DB : 写状态日志和站内消息、COMMIT
+    SVC -> NOTIFY : 异步外部投递（如适用）
     NOTIFY --> SVC : 已入队
     SVC --> API : 201 claim
     API --> U : 201 {id, status: pending_first}

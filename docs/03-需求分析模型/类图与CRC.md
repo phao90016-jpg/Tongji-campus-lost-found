@@ -29,7 +29,7 @@
 |---|---|---|
 | 身份层 | User、Role、Permission、UserRole、FinderCertification | 能力判定与实名认证 |
 | 内容层 | Category、Location、LostItem、FoundItem、ItemImage、ItemFeature、SensitiveMask | 发布与治理 |
-| 流程层 | ClaimApplication、VerificationQuestion、ReviewRecord、HandoverToken、ItemStatusLog | 认领审核主链路 |
+| 流程层 | ClaimApplication、VerificationQuestion、ReviewRecord、HandoverConfirmation、ItemStatusLog | 认领审核主链路 |
 | 治理层 | Report、ReportDisposition、CreditScore、Appeal | 违规处置与申诉 |
 | 支撑层 | Notification、NotifyChannel、DeliveryLog、KeywordSubscription、Favorite、AuditLog、StatMetric、SystemConfig | 通知、统计、审计 |
 
@@ -71,14 +71,13 @@
 | 校验答案（只比对哈希，不返回明文） | ClaimApplication |
 | 对失主只暴露问题文本，不暴露答案 | — |
 
-### CRC：交接凭证 HandoverToken
+### CRC：交接确认 HandoverConfirmation
 
 | 职责 | 协作者 |
 |---|---|
-| 持有码哈希、有效期、核销方、核销时间、重发次数 | ClaimApplication |
-| 生成 6 位码并只存哈希 | — |
-| 一次性核销（`UPDATE ... WHERE consumed_at IS NULL`） | ClaimApplication |
-| 判断是否过期（72 小时）、是否可重发（≤2 次） | — |
+| 关联申请、物品，记录获准领取人和确认时间 | ClaimApplication、User |
+| 同一申请最多一条，重复确认返回原记录 | ClaimApplication |
+| 按归属授权查阅确认结果 | User |
 
 ### CRC：审核记录 ReviewRecord
 
@@ -115,7 +114,7 @@
 | FoundItem — VerificationQuestion | 一条招领有 1–3 个核验问题 | 1 : 1..3 |
 | FoundItem — ClaimApplication | 一条招领可收到多条申请，但同一时刻最多 1 条进行中 | 1 : 0..* |
 | ClaimApplication — ReviewRecord | 一条申请有初审与终审两条记录 | 1 : 0..2 |
-| ClaimApplication — HandoverToken | 一条通过终审的申请有一个有效交接码 | 1 : 0..1 |
+| ClaimApplication — HandoverConfirmation | 一条已领取申请有一条交接确认记录 | 1 : 0..1 |
 | User — Role | 一人可多角色（student + finder） | * : * |
 | Role — Permission | 角色是能力的集合 | * : * |
 | Report — ReportDisposition | 一条举报对应一次处置 | 1 : 0..1 |

@@ -21,6 +21,7 @@ left to right direction
 actor "学生（失主）" as STU
 actor "拾取者" as FINDER
 actor "审核员（保卫处）" as REVIEWER
+actor "学生志愿者" as VOL
 actor "定时任务" as SCHED <<系统角色>>
 actor "对象存储" as OSS <<外部系统>>
 
@@ -34,8 +35,9 @@ rectangle "校园失物招领与认领审核系统 · v0.1" {
   usecase "UC-15 提交认领申请" as UC15
   usecase "UC-17 拾取者初审认领申请" as UC17
   usecase "UC-18 审核员终审认领申请" as UC18
-  usecase "UC-19 交接码核销" as UC19
-  usecase "UC-21 发布自动过期与关闭" as UC21
+  usecase "UC-19 领取人确认交接" as UC19
+  usecase "UC-21 公示截止与自动关闭" as UC21
+  usecase "UC-32 值班跟进（首版）" as UC32
   usecase "NFR-UC-01 并发认领互斥" as NFR01
   usecase "NFR-UC-02 越权与脱敏拦截" as NFR02
 }
@@ -45,9 +47,12 @@ STU --> UC05
 STU --> UC10
 STU --> UC11
 STU --> UC15
+STU --> UC19
 FINDER --> UC06
 FINDER --> UC17
 REVIEWER --> UC18
+REVIEWER --> UC32
+VOL --> UC32
 SCHED --> UC21
 
 UC05 --> UC07

@@ -21,6 +21,7 @@ left to right direction
 actor "学生（失主 / 浏览者）\nstudent" as STU
 actor "拾取者\nfinder" as FINDER
 actor "审核员（保卫处）\nreviewer" as REVIEWER
+actor "学生志愿者\nvolunteer" as VOL
 actor "系统管理员\nadmin" as ADMIN
 actor "定时任务" as SCHED <<系统角色>>
 
@@ -52,6 +53,7 @@ FINDER --> M_D
 REVIEWER --> M_D
 REVIEWER --> M_E
 REVIEWER --> M_H
+VOL --> M_H
 ADMIN --> M_G
 ADMIN --> M_H
 SCHED --> M_E

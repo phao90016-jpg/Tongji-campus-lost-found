@@ -23,13 +23,13 @@
 | `state/item-state.puml` | 发布状态图 | [状态图与顺序图](../docs/03-需求分析模型/状态图与顺序图.md) §1.1 |
 | `state/claim-state.puml` | 认领申请状态图 | 同上 §1.2 |
 | `sequence/sd01-submit-claim.puml` | 提交认领申请（含并发冲突） | 同上 §2 |
-| `sequence/sd02-final-review.puml` | 终审通过（事务 + 交接码） | 同上 §2.1 |
-| `sequence/sd03-handover.puml` | 交接码核销 | 同上 §2 |
+| `sequence/sd02-final-review.puml` | 终审通过并等待领取 | 同上 §2.1 |
+| `sequence/sd03-handover.puml` | 领取人确认交接 | 同上 §2 |
 | `sequence/sd04-notify-fallback.puml` | 通知投递与降级 | 同上 §2.2 |
 | `sequence/act-uc06-publish-found.puml` | 活动图：发布招领 | [SRS](../docs/02-需求规约/SRS-v1.0.md) §4.1 |
 | `sequence/act-uc15-submit-claim.puml` | 活动图：提交认领 | 同上 §4.2 |
 | `sequence/act-uc18-final-review.puml` | 活动图：终审 | 同上 §4.3 |
-| `sequence/act-uc19-handover.puml` | 活动图：交接核销 | 同上 §4.4 |
+| `sequence/act-uc19-handover.puml` | 活动图：领取人确认交接 | 同上 §4.4 |
 
 ## 渲染
 

@@ -45,7 +45,7 @@ uvicorn app.main:app --reload      # http://localhost:8000/health
 
 - `ruff check .` 无告警
 - `pytest -q` 全绿
-- 核心模块覆盖率 ≥80%（`services`：状态机、终审事务、交接码、脱敏、通知投递）
+- 核心模块覆盖率 ≥80%（`services`：状态机、终审事务、领取确认、脱敏、通知投递）
 
 ## 骨架期包含什么
 

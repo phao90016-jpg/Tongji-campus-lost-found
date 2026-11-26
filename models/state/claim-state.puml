@@ -7,18 +7,22 @@ skinparam defaultFontName "Microsoft YaHei"
 skinparam shadowing false
 
 [*] --> pending_first : 提交申请
-pending_first --> pending_final : 初审建议通过
+pending_first --> pending_final : 初审建议通过或驳回／老师超时接手
 pending_first --> need_more : 初审要求补充
 pending_first --> withdrawn : 申请人撤回
-pending_first --> rejected : 同物品已被他人认领
-need_more --> pending_first : 申请人补充材料（仅一次）
+need_more --> pending_first : 补交完成（原环节初审）
+need_more --> pending_final : 补交完成（原环节终审）
+need_more --> withdrawn : 申请人撤回
+pending_final --> withdrawn : 申请人撤回
 need_more --> rejected : 72 小时未补充
 pending_final --> approved : 终审通过
 pending_final --> rejected : 终审驳回
 pending_final --> need_more : 终审要求补充
-pending_final --> rejected : 同物品已被他人认领
-approved --> completed : 交接码核销
-approved --> expired : 交接码过期且重发用尽
+approved --> completed : 领取人确认交接
+approved --> expired : 逾期且核实未交付
+pending_first --> expired : 核实需更正核验信息
+pending_final --> expired : 核实需更正核验信息
+need_more --> expired : 核实需更正核验信息
 completed --> [*]
 rejected --> [*]
 withdrawn --> [*]
@@ -26,7 +30,8 @@ expired --> [*]
 
 note right of approved
   同一时刻同一物品只能有
-  一条 approved / pending_* 记录
+  一条 approved / pending_* / need_more 记录
+  72 小时未确认加入值班待办
 end note
 
 @enduml

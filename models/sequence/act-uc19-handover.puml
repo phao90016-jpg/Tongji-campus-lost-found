@@ -1,73 +1,26 @@
 @startuml act-uc19-handover
-' ============================================================
-' UC-19 交接码生成、核销与重发 · 活动图
-' 对应 SRS §4.4
-' ============================================================
-title UC-19 交接码核销
+title UC-19 领取人确认交接
 
-skinparam defaultFontName "Microsoft YaHei"
+skinparam defaultFontName "PingFang SC"
 skinparam shadowing false
-skinparam activity {
-  BackgroundColor #F3F8F2
-  BorderColor #3F6B3A
-  DiamondBackgroundColor #FFFFFF
-}
-skinparam note {
-  BackgroundColor #FFF9E6
-  BorderColor #C9A227
-}
 
 start
-
-:双方线下见面;
-:一方展示自己的交接码;
-:另一方输入码并点击「确认交接」;
-
-if (调用者是该申请的两方之一 ?) then (否)
-  :403 FORBIDDEN;
-  note right : 不泄露码是否存在
-  stop
-else (是)
-endif
-
-if (码已被核销 ?) then (是)
-  :409 HANDOVER_CONSUMED;
-  :展示核销时间;
-  stop
+:在申请详情查看领取安排；到场验物并领取;
+:获准领取人在申请详情点击「确认已领取」;
+if (账号为获准领取人?) then (是)
 else (否)
-endif
-
-if (已过期 ?) then (是)
-  :410 HANDOVER_EXPIRED;
-  :提示可重发（剩余次数 N）;
+  :拒绝确认;
   stop
-else (否)
 endif
-
-if (码哈希匹配 ?) then (否)
-  :失败次数 +1;
-  if (失败 >= 5 ?) then (是)
-    :锁定 30 分钟;
-    :423 HANDOVER_LOCKED;
+if (已有确认记录?) then (是)
+  :返回原确认记录;
+else (否)
+  if (仍待领取?) then (是)
+    :事务内写确认记录、状态日志和站内消息;
+    :申请转已完成，物品转已交接;
   else (否)
-    :403 交接码不正确;
+    :提示当前状态;
   endif
-  stop
-else (是)
 endif
-
-:条件更新核销（consumed_at IS NULL）;
-if (并发导致 rowcount = 0 ?) then (是)
-  :409 HANDOVER_CONSUMED;
-  stop
-else (否)
-endif
-
-:claim → completed;
-:item → handed_over;
-:写状态日志;
-:通知双方"交接完成";
-:发布 7 天后自动关闭;
 stop
-
 @enduml

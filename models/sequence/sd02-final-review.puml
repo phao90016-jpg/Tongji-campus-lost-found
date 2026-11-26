@@ -1,56 +1,23 @@
 @startuml sd02-final-review
-' ============================================================
-' SD-02 终审通过（事务 + 交接码）
-' 对应 SRS §4.3、详细设计 构件 2 与 构件 3
-' 重点：单事务内完成 4 件事，任一步失败全回滚
-' ============================================================
-title SD-02 终审通过（事务 + 交接码）
+title SD-02 终审通过并等待领取
 
-skinparam defaultFontName "Microsoft YaHei"
+skinparam defaultFontName "PingFang SC"
 skinparam shadowing false
-skinparam sequence {
-  ArrowColor #2C5F8A
-  LifeLineBorderColor #2C5F8A
-  ParticipantBackgroundColor #F7FFF7
-  ParticipantBorderColor #3F6B3A
-}
 
-actor "审核员" as R
+actor "审核员" as U
 participant "API" as API
-participant "终审服务\nclaims.final_review" as SVC
-database "DB" as DB
-participant "通知服务" as NOTIFY
+participant "审核服务" as SVC
+database "数据库" as DB
 
-R -> API : POST /claims/{id}/final-review {approve}
-API -> API : 校验 claim:review_final
-API -> SVC : final_review(claim_id, version, reviewer)
-
-SVC -> DB : BEGIN IMMEDIATE
-SVC -> DB : SELECT claim FOR UPDATE
-alt 审核人 == 申请人 或 发布人
-  SVC --> API : 403 FORBIDDEN
-else claim.status != 'pending_final'
-  SVC --> API : 409 ITEM_STATE_INVALID
-else 正常
-  SVC -> DB : UPDATE claim SET status='approved', version=version+1\nWHERE id=? AND version=? AND status='pending_final'
-  alt rowcount == 0（并发：别人已处理）
-    SVC -> DB : ROLLBACK
-    SVC --> API : 409 CLAIM_CONFLICT
-  else rowcount == 1
-    SVC -> DB : INSERT handover_token(code_hash, expires_at=now+72h)
-    SVC -> DB : UPDATE claim SET status='rejected',\nreason='taken_by_other'\nWHERE item_id=? AND id<>? AND status IN (...)
-    SVC -> DB : UPDATE item SET status='claiming' WHERE id=? AND status='published'
-    SVC -> DB : INSERT item_status_log ×2、INSERT audit_log
-    SVC -> DB : COMMIT
-    SVC -> NOTIFY : 通知双方（含交接码明文，仅此一次）
-    SVC --> API : 200 {code, expires_at, rejected_others}
-    API --> R : 200
-  end
+U -> API : 提交终审通过与当前版本
+API -> SVC : 校验审核权限并处理
+SVC -> DB : 开启事务，校验申请状态、版本、回避条件与领取安排
+alt 可终审
+  SVC -> DB : 写结论，申请转已通过、物品转认领中
+  SVC -> DB : 写日志、审计和站内消息，提交
+  SVC --> API : 当前申请待领取，返回最新领取安排，继续占位
+else 状态或版本已改变／领取安排已失效
+  SVC --> API : 409，提示查看最新结果
 end
-
-note over SVC, DB
-  事务边界在 services 层；
-  接口层不 BEGIN，也不拼 SQL
-end note
-
+API --> U : 终审处理结果
 @enduml
