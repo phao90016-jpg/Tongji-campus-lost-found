@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """批量渲染 models/ 下的 PlantUML 源文件到 docs/assets/。
 
 约定（见 CONTRIBUTING.md §8）：
@@ -12,14 +10,13 @@
 
 用法：
     python scripts/render_models.py            # 渲染全部
-    python scripts/render_models.py --check    # 只校验语法，不写文件（CI 用）
+    python scripts/render_models.py --check    # 只校验语法，不生成图片（CI 用）
     python scripts/render_models.py models/usecase/usecase-v01.puml
 """
 import argparse
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -53,29 +50,31 @@ def main() -> int:
         print("  或设置环境变量 PLANTUML_JAR 指向已有 jar（下载地址 https://plantuml.com/download）。")
         return 2
 
-    files = [Path(f) for f in a.files] if a.files else sorted(MODELS.rglob("*.puml"))
+    files = [Path(f).resolve() for f in a.files] if a.files else sorted(MODELS.rglob("*.puml"))
     if not files:
         print("✗ models/ 下没有 .puml 文件")
         return 1
 
-    OUT.mkdir(parents=True, exist_ok=True)
+    if not a.check:
+        OUT.mkdir(parents=True, exist_ok=True)
     ok, failed = 0, []
     for f in files:
         if a.check:
-            cmd = ["java", "-jar", str(jar), "-syntax", "-charset", "UTF-8", str(f)]
+            cmd = ["java", "-jar", str(jar), "-checkonly", "-charset", "UTF-8", str(f)]
         else:
             cmd = [
-                "java", "-jar", str(jar), "-tpng", "-charset", "UTF-8",
+                "java", "-jar", str(jar), "-tpng", "-noerror", "-charset", "UTF-8",
                 "-o", str(OUT), str(f),
             ]
-        proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        proc = subprocess.run(cmd, check=False, capture_output=True, text=True, encoding="utf-8", errors="replace")
         bad = proc.returncode != 0 or "ERROR" in (proc.stdout or "") + (proc.stderr or "")
         if bad:
             failed.append(f.name)
             print(f"✗ {f.name}\n{proc.stdout}\n{proc.stderr}")
         else:
             ok += 1
-            print(f"✓ {f.relative_to(ROOT)}")
+            label = f.relative_to(ROOT) if f.is_relative_to(ROOT) else f
+            print(f"✓ {label}")
 
     print(f"\n完成：{ok} 成功，{len(failed)} 失败")
     if failed:
@@ -84,4 +83,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

@@ -1,72 +1,33 @@
 @startuml act-uc15-submit-claim
-' ============================================================
-' UC-15 提交认领申请 · 活动图
-' 对应 SRS §4.2
-' ============================================================
 title UC-15 提交认领申请
-
-skinparam defaultFontName "Microsoft YaHei"
+skinparam defaultFontName "PingFang SC"
 skinparam shadowing false
 skinparam activity {
   BackgroundColor #F7FBFF
   BorderColor #2C5F8A
   DiamondBackgroundColor #FFFFFF
 }
-skinparam note {
-  BackgroundColor #FFF9E6
-  BorderColor #C9A227
-}
 
 start
 
-:在招领详情页点击「申请认领」;
-:系统展示核验问题（不展示答案）;
-:填写理由、核验答案、可选材料、期望交接时间;
-
-if (招领状态允许且未到收件截止？) then (否)
-  :提示物品当前状态或公示已结束;
-  stop
-else (是)
-endif
-
-if (信用分 >= 40 ?) then (否)
-  :拒绝：信用分不足;
-  :给出申诉入口;
-  stop
-else (是)
-endif
-
-if (目标是本人发布 ?) then (是)
-  :拒绝（BR-06-2）;
-  stop
+:填写认领理由、核验答案、可选材料与期望交接时间;
+if (登录、信用分、归属和表单通过？) then (是)
 else (否)
-endif
-
-if (核验版本与提交资格有效 ?) then (否)
-  :提示刷新资料或查看原申请;
+  :指出未通过的条件;
   stop
-else (是)
 endif
-:事务内插入申请并关联证据版本;
-
-if (唯一索引冲突 uq_claim_active ?) then (是)
-  :回滚;
-  :返回 409 CLAIM_CONFLICT;
-  :提示物品当前已有一条申请;
+:在物品事务内检查公示截止、申请资格和核验版本;
+if (当前仍可受理？) then (是)
+else (否)
+  :按原因提示截止、申请冲突或刷新核验信息;
   stop
-else (否)
 endif
-
-:写状态日志;
-:写站内消息并通知拾取者;
-if (通知发送失败 ?) then (是)
-  :记录投递失败;
-  :降级到站内消息;
-  note right : 不阻塞申请提交
+:尝试创建待初审申请，关联证据版本;
+if (取到唯一占位？) then (是)
+  :同事务保存申请、状态日志和站内消息;
+  :返回待初审详情，拾取者登录后可查通知;
 else (否)
+  :回滚并提示物品已有进行中申请;
 endif
-
-:返回申请详情与后续流程说明;
 stop
-
 @enduml

@@ -1,68 +1,56 @@
 @startuml usecase-actors
-' ============================================================
-' 校园失物招领与认领审核系统 · 参与者与系统边界
-' 用途：第 4/5 次课讲解、答辩开场
-' 数据源：docs/02-需求规约/用例清单.md §1
-' ============================================================
 title 参与者与系统边界
-
+skinparam defaultFontName "PingFang SC"
 skinparam shadowing false
-skinparam defaultFontName "Microsoft YaHei"
 skinparam usecase {
-  BackgroundColor #F7FBFF
-  BorderColor #2C5F8A
-}
-skinparam rectangle {
-  BackgroundColor #FFFFFF
-  BorderColor #2C5F8A
+  BackgroundColor #F3F8F4
+  BorderColor #3F6B55
 }
 left to right direction
 
-actor "学生（失主 / 浏览者）\nstudent" as STU
-actor "拾取者\nfinder" as FINDER
-actor "审核员（保卫处）\nreviewer" as REVIEWER
-actor "学生志愿者\nvolunteer" as VOL
-actor "系统管理员\nadmin" as ADMIN
+
+actor "学生" as STU
+actor "拾取者" as FINDER
+actor "值班老师" as REVIEWER
+actor "学生志愿者" as VOL
+actor "系统管理员" as ADMIN
 actor "定时任务" as SCHED <<系统角色>>
-
-rectangle "校园失物招领与认领审核系统" {
-  usecase "身份与账号\nUC-01 ~ UC-04" as M_A
-  usecase "发布与内容治理\nUC-05 ~ UC-09" as M_B
-  usecase "检索与匹配\nUC-10 ~ UC-14" as M_C
-  usecase "认领与审核\nUC-15 ~ UC-20" as M_D
-  usecase "状态流转 / 举报 / 信用\nUC-21 ~ UC-25" as M_E
-  usecase "通知\nUC-26 ~ UC-28" as M_F
-  usecase "统计\nUC-29 ~ UC-31" as M_G
-  usecase "后台与权限\nUC-32 ~ UC-35" as M_H
-  usecase "非功能用例\nNFR-UC-01 ~ 04" as M_N
-}
-
 actor "学校统一身份认证" as SSO <<外部系统>>
 actor "对象存储" as OSS <<外部系统>>
+actor "内容安全 API" as CSAFE <<外部系统>>
 actor "微信服务号" as WX <<外部系统>>
 actor "邮件 SMTP" as MAIL <<外部系统>>
-actor "内容安全 API" as CSAFE <<外部系统>>
 
-STU --> M_A
-STU --> M_B
-STU --> M_C
-STU --> M_D
-STU --> M_E
-FINDER --> M_B
-FINDER --> M_D
-REVIEWER --> M_D
-REVIEWER --> M_E
-REVIEWER --> M_H
-VOL --> M_H
-ADMIN --> M_G
-ADMIN --> M_H
-SCHED --> M_E
-SCHED --> M_F
+rectangle "校园失物招领与认领审核系统" {
+  usecase "身份与账号\nUC-01～04" as M_A
+  usecase "发布与内容治理\nUC-05～09" as M_B
+  usecase "检索与匹配\nUC-10～14" as M_C
+  usecase "认领与审核\nUC-15～20" as M_D
+  usecase "状态流转、举报与信用\nUC-21～25" as M_E
+  usecase "接收通知与通道投递\nUC-26～28" as M_F
+  usecase "统计\nUC-29～31" as M_G
+  usecase "后台与权限\nUC-32～35" as M_H
+}
 
-SSO --> M_A
-OSS --> M_B
-WX --> M_F
-MAIL --> M_F
-CSAFE --> M_B
+STU -- M_A
+STU -- M_B
+STU -- M_C
+STU -- M_D
+STU -- M_E
+FINDER -- M_B
+FINDER -- M_D
+REVIEWER -- M_D
+REVIEWER -- M_E
+REVIEWER -- M_H
+VOL -- M_H : 分派待办
+ADMIN -- M_G
+ADMIN -- M_H
+SCHED -- M_E
+SCHED -- M_F
 
+M_A -- SSO
+M_B -- OSS
+M_B -- CSAFE : 可选集成
+M_F -- WX
+M_F -- MAIL
 @enduml

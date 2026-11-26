@@ -18,7 +18,7 @@
 | `usecase/usecase-actors.puml` | 参与者与系统边界 | [用例图](../docs/03-需求分析模型/用例图.md) §3.1 |
 | `usecase/usecase-v01.puml` | v0.1 主链路（发布→检索→认领→审核→交接） | 同上 §3.2 |
 | `usecase/usecase-v02.puml` | v0.2 主链路（举报/通知/统计/权限） | 同上 §3.3 |
-| `usecase/usecase-v03.puml` | v0.3 主链路（匹配与开放能力） | 同上 §3.4 |
+| `usecase/usecase-v03.puml` | v0.3 主链路（相似推荐与报表导出） | 同上 §3.4 |
 | `class/domain.puml` | 领域类图（29 个分析类） | [类图与CRC](../docs/03-需求分析模型/类图与CRC.md) §2 |
 | `state/item-state.puml` | 发布状态图 | [状态图与顺序图](../docs/03-需求分析模型/状态图与顺序图.md) §1.1 |
 | `state/claim-state.puml` | 认领申请状态图 | 同上 §1.2 |

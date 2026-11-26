@@ -113,7 +113,7 @@ package "认领与审核" {
     answer_cipher
     + verify(answer) : bool
   }
-  class ClaimAnswer {
+  class "ClaimAnswer" as ClaimAnswer <<实现明细>> {
     answer
     is_correct
   }
@@ -236,8 +236,9 @@ ClaimApplication "1" *-- "0..3" ClaimAnswer
 VerificationQuestion "1" -- "0..*" ClaimAnswer
 ClaimApplication "1" -- "0..2" ReviewRecord : 初审/终审
 ClaimApplication "1" -- "0..1" HandoverConfirmation
-LostItem ..> ClaimApplication : 相似匹配
+LostItem ..> FoundItem : 相似匹配
 ItemStatusLog ..> LostItem : 记录迁移
+ItemStatusLog ..> FoundItem : 记录迁移
 ItemStatusLog ..> ClaimApplication : 记录迁移
 
 ' ---------- 治理 ----------

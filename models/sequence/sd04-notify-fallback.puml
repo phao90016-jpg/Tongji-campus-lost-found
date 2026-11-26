@@ -1,49 +1,54 @@
 @startuml sd04-notify-fallback
-' ============================================================
-' SD-04 通知投递与失败降级
-' 对应 REQ-F-023、REQ-N-004、详细设计 构件 5
-' 重点：站内必达、通道顺序、每次尝试留痕、重启补扫
-' ============================================================
 title SD-04 通知投递与失败降级
-
-skinparam defaultFontName "Microsoft YaHei"
+skinparam defaultFontName "PingFang SC"
 skinparam shadowing false
+hide footbox
 skinparam sequence {
-  ArrowColor #3F6B3A
-  LifeLineBorderColor #3F6B3A
-  ParticipantBackgroundColor #F3F8F2
-  ParticipantBorderColor #3F6B3A
+  ArrowColor #285D49
+  LifeLineBorderColor #8CA69A
+  ParticipantBackgroundColor #F3F8F4
+  ParticipantBorderColor #285D49
 }
 
+
 participant "业务服务" as BIZ
-participant "通知服务\nnotify.enqueue" as NOTIFY
-database "DB" as DB
-participant "调度 tick()" as TICK
+database "数据库" as DB
+participant "通知调度" as TICK
 participant "微信适配器" as WX
 participant "邮件适配器" as MAIL
 
-BIZ -> NOTIFY : enqueue(user, type, title, body)
-NOTIFY -> DB : INSERT notification（站内必达）
-NOTIFY -> DB : 按用户已绑定通道 INSERT delivery ×N（pending）
-NOTIFY --> BIZ : 入队完成（不阻塞业务）
+BIZ -> DB : 与业务一起写入站内消息
+opt v0.2 且已绑定外部通道
+  BIZ -> DB : 登记待投递任务
+end
+note right of DB
+  用户登录后可查站内消息。
+  外部通道的结果不影响站内记录。
+end note
 
-== 后台调度 ==
-TICK -> DB : SELECT delivery WHERE status='pending' AND plan_at<=now
-TICK -> DB : UPDATE delivery SET status='sending' WHERE id=? AND status='pending'
-Note right of DB : 乐观锁，重复 tick 不会重复发送
-TICK -> WX : send(msg)
-WX --> TICK : 失败（40001 凭据失效 / 超时）
-TICK -> DB : INSERT delivery_log(wechat, failed, latency)
-TICK -> MAIL : send(msg)
-MAIL --> TICK : 成功
-TICK -> DB : UPDATE delivery SET status='sent'、INSERT delivery_log(email, ok)
-TICK -> DB : UPDATE 其余通道 SET status='skipped'
-Note right of DB : 任一通道成功后其余置 skipped，
-                 避免用户收到两条重复通知
+opt 有外部投递任务
+  TICK -> DB : 条件更新抢占待投递任务
+  opt 已绑定微信
+    TICK -> WX : 投递微信
+    WX --> TICK : 成功或失败
+    TICK -> DB : 记录微信结果
+  end
+  alt 微信成功
+    TICK -> DB : 跳过邮件
+  else 微信失败或未绑定
+    opt 已绑定邮件
+      TICK -> MAIL : 改投邮件
+      MAIL --> TICK : 成功或失败
+      TICK -> DB : 记录邮件结果
+    end
+  end
+end
 
-== 服务重启 ==
-TICK -> DB : SELECT delivery WHERE status='sending' AND updated_at < now-5min
-TICK -> DB : UPDATE 回退为 pending → 下一轮补发
-Note right of DB : 补扫不重复：靠 claim_delivery 的条件更新
-
+opt 进程重启
+  TICK -> DB : 补扫中断任务，跳过已有成功记录
+  note right of DB
+    抢占防止本地并发执行同一任务。
+    远端已收到但本地未记账的场景需单独验证。
+  end note
+end
 @enduml

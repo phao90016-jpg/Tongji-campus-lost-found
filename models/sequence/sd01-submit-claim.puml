@@ -1,59 +1,40 @@
 @startuml sd01-submit-claim
-' ============================================================
-' SD-01 提交认领申请（含并发冲突）
-' 对应 SRS §4.2、详细设计 构件 2
-' 重点：部分唯一索引 uq_claim_active 保证同一物品只有一条进行中申请
-' ============================================================
-title SD-01 提交认领申请（含并发冲突）
-
-skinparam defaultFontName "Microsoft YaHei"
+title SD-01 提交认领申请与占位
+skinparam defaultFontName "PingFang SC"
 skinparam shadowing false
+hide footbox
 skinparam sequence {
-  ArrowColor #2C5F8A
-  LifeLineBorderColor #2C5F8A
-  ParticipantBackgroundColor #F7FBFF
-  ParticipantBorderColor #2C5F8A
+  ArrowColor #285D49
+  LifeLineBorderColor #8CA69A
+  ParticipantBackgroundColor #F3F8F4
+  ParticipantBorderColor #285D49
 }
 
+
 actor "失主" as U
-participant "API\n/api/v1" as API
-participant "权限依赖\nrequire(claim:create)" as AUTH
-participant "认领服务\nclaims.create" as SVC
-database "SQLite/PostgreSQL" as DB
-participant "通知服务\nnotify.enqueue" as NOTIFY
+participant "API /api/v1" as API
+participant "认领服务" as SVC
+database "数据库" as DB
 
-U -> API : POST /items/{id}/claims {evidence_revision, ...}
-API -> AUTH : 校验登录、能力、信用分
-AUTH --> API : OK（credit_score >= 40）
-API -> SVC : create_claim(item_id, applicant, payload)
-
-SVC -> DB : BEGIN IMMEDIATE
-SVC -> DB : 读取物品（状态、归属、首次公示时间、核验版本）
-alt item.status != 'published'
-  SVC --> API : 409 ITEM_STATE_INVALID
-else 已到收件截止
+U -> API : POST /items/{id}/claims
+API -> API : 校验登录、权限和表单
+API -> SVC : 提交物品、申请与核验版本
+SVC -> DB : 开启事务并锁定物品，检查公示截止与申请资格
+alt 已截止
+  SVC -> DB : 结束事务
   SVC --> API : 409 PUBLICATION_ENDED
-else 目标是本人发布
-  SVC --> API : 403 FORBIDDEN
-else 核验版本或重申资格不符
-  SVC --> API : 409，提示刷新或查看原申请
-else 正常
-  SVC -> DB : SELECT claim WHERE item_id=? AND status IN (进行中)
-  alt 已有进行中申请（含并发写入）
+else 其他前置条件不满足
+  SVC -> DB : 结束事务
+  SVC --> API : 按原因返回权限或状态错误
+else 通过前置校验
+  SVC -> DB : 尝试插入申请并关联证据版本
+  alt 唯一占位冲突
+    SVC -> DB : 回滚
     SVC --> API : 409 CLAIM_CONFLICT
-  else 无
-    SVC -> DB : 写待初审申请并关联证据版本
-    Note right of DB
-      部分唯一索引 uq_claim_active
-      并发下第二次 INSERT 抛 IntegrityError
-      → 捕获后返回 409
-    end note
-    SVC -> DB : 写状态日志和站内消息、COMMIT
-    SVC -> NOTIFY : 异步外部投递（如适用）
-    NOTIFY --> SVC : 已入队
-    SVC --> API : 201 claim
-    API --> U : 201 {id, status: pending_first}
+  else 成功
+    SVC -> DB : 写状态日志和站内消息，提交
+    SVC --> API : 201 待初审
   end
 end
-
+API --> U : 申请详情或具体的失败提示
 @enduml

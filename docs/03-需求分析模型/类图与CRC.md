@@ -18,7 +18,7 @@
 
 ## 2. 类图
 
-> 源文件 `models/class/domain.puml`，一图一 PR；渲染产物 `docs/assets/class-domain.png`。
+> 源文件 `models/class/domain.puml`，一图一 PR；渲染产物 `docs/assets/domain.png`。图中另有实现明细 `ClaimAnswer`，课程分析类清单仍为 29 个。
 > 渲染命令：`java -jar plantuml.jar -tpng -charset UTF-8 models/class/domain.puml`
 
 ![领域类图](../assets/domain.png)
@@ -36,8 +36,7 @@
 ### 2.2 为什么把"失物"和"招领"分成两个类
 
 两者字段 80% 相同，但**行为不同**：招领必须带核验问题、必须有交接地点、可以初审；失物没有核验问题、不能初审。
-合成一个 `Item` 加 `type` 字段会让所有涉及核验问题的地方都要判断类型，且数据库层面无法约束"招领必须有核验问题"。
-代价是检索时要合并两张表——用数据库视图 + 统一查询对象解决（见 [数据库设计](../04-设计/数据库设计.md) §4）。
+两个分析类共享数据库中的 `item` 表及 `kind` 判别字段。发布服务在事务内校验招领必须带核验问题，检索使用共享表。见 [数据库设计](../04-设计/数据库设计.md) §2。
 
 ## 3. CRC 卡
 
@@ -49,18 +48,18 @@
 |---|---|
 | 持有标题、描述、分类、地点、拾取时间、保管方式、交接地点、状态、版本号 | Category, Location, User |
 | 持有并约束核验问题（≥1 个） | VerificationQuestion |
-| 判断是否可被认领（状态=公示中 且 无进行中申请 且 非本人发布） | ClaimApplication |
+| 判断是否可被认领（仍开放公示、无进行中申请且非本人发布） | ClaimApplication |
 | 状态迁移：公示中 → 认领中 → 已交接 → 已关闭 | ItemStatusLog |
-| 判断是否超期（>60 天） | — |
+| 判断是否到达首次公示后 60 天的截止点 | — |
 
 ### CRC：认领申请 ClaimApplication
 
 | 职责 | 协作者 |
 |---|---|
 | 持有理由、核验答案、材料、期望交接时间、状态、版本号 | User, FoundItem |
-| 校验同一用户对同一发布只有 1 条进行中申请 | FoundItem |
-| 状态迁移：待初审 → 待终审 → 已通过 → 待交接 → 已完成 / 已驳回 / 已撤回 / 已失效 | ItemStatusLog, ReviewRecord |
-| 判断是否可撤回（终审通过前） | — |
+| 校验同一物品在任一时刻最多有 1 条进行中申请 | FoundItem |
+| 正常路径为待初审 → 待终审 → 已通过（待领取）→ 已完成；补交、驳回、撤回与失效按状态图处理 | ItemStatusLog, ReviewRecord |
+| 判断是否可撤回（待初审、待终审或待补充） | — |
 | 提供申请人历史（申请次数、通过率）供审核参考 | ReviewRecord, CreditScore |
 
 ### CRC：核验问题 VerificationQuestion
@@ -113,7 +112,7 @@
 | User — FoundItem | 一个拾取者发布多条招领 | 1 : 0..* |
 | FoundItem — VerificationQuestion | 一条招领有 1–3 个核验问题 | 1 : 1..3 |
 | FoundItem — ClaimApplication | 一条招领可收到多条申请，但同一时刻最多 1 条进行中 | 1 : 0..* |
-| ClaimApplication — ReviewRecord | 一条申请有初审与终审两条记录 | 1 : 0..2 |
+| ClaimApplication — ReviewRecord | 一条申请初审与终审正式记录各至多一条 | 1 : 0..2 |
 | ClaimApplication — HandoverConfirmation | 一条已领取申请有一条交接确认记录 | 1 : 0..1 |
 | User — Role | 一人可多角色（student + finder） | * : * |
 | Role — Permission | 角色是能力的集合 | * : * |
