@@ -1,0 +1,55 @@
+@startuml sd01-submit-claim
+' ============================================================
+' SD-01 提交认领申请（含并发冲突）
+' 对应 SRS §4.2、详细设计 构件 2
+' 重点：部分唯一索引 uq_claim_active 保证同一物品只有一条进行中申请
+' ============================================================
+title SD-01 提交认领申请（含并发冲突）
+
+skinparam defaultFontName "Microsoft YaHei"
+skinparam shadowing false
+skinparam sequence {
+  ArrowColor #2C5F8A
+  LifeLineBorderColor #2C5F8A
+  ParticipantBackgroundColor #F7FBFF
+  ParticipantBorderColor #2C5F8A
+}
+
+actor "失主" as U
+participant "API\n/api/v1" as API
+participant "权限依赖\nrequire(claim:create)" as AUTH
+participant "认领服务\nclaims.create" as SVC
+database "SQLite/PostgreSQL" as DB
+participant "通知服务\nnotify.enqueue" as NOTIFY
+
+U -> API : POST /items/{id}/claims
+API -> AUTH : 校验登录、能力、信用分
+AUTH --> API : OK（credit_score >= 40）
+API -> SVC : create_claim(item_id, applicant, payload)
+
+SVC -> DB : BEGIN IMMEDIATE
+SVC -> DB : SELECT item (status, owner_id)
+alt item.status != 'published'
+  SVC --> API : 409 ITEM_STATE_INVALID
+else 目标是本人发布
+  SVC --> API : 403 FORBIDDEN
+else 正常
+  SVC -> DB : SELECT claim WHERE item_id=? AND status IN (进行中)
+  alt 已有进行中申请（含并发写入）
+    SVC --> API : 409 CLAIM_CONFLICT
+  else 无
+    SVC -> DB : INSERT claim_application(status='pending_first')
+    Note right of DB
+      部分唯一索引 uq_claim_active
+      并发下第二次 INSERT 抛 IntegrityError
+      → 捕获后返回 409
+    end note
+    SVC -> DB : INSERT item_status_log、COMMIT
+    SVC -> NOTIFY : 通知拾取者（站内必达 + 通道投递）
+    NOTIFY --> SVC : 已入队
+    SVC --> API : 201 claim
+    API --> U : 201 {id, status: pending_first}
+  end
+end
+
+@enduml

@@ -1,0 +1,58 @@
+name: 用户故事
+description: 以用户故事形式提出需求，附 Given/When/Then 验收标准
+title: "[US] "
+labels: ["type:user-story"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > 需求先建 Issue，再开分支实现。验收标准要能被测试用例直接引用。
+        > 编号规则见 docs/README.md（REQ-F- / UC- / TC-）。
+  - type: dropdown
+    id: role
+    attributes:
+      label: 角色
+      options:
+        - 学生（失主 / 浏览者）student
+        - 拾取者 finder
+        - 审核员（保卫处）reviewer
+        - 系统管理员 admin
+        - 系统（定时任务）
+    validations:
+      required: true
+  - type: textarea
+    id: story
+    attributes:
+      label: 用户故事
+      description: 作为<角色>，我希望<目标>，以便<价值>
+      placeholder: 作为失主，我希望在提交认领时回答拾取者预留的核验问题，以便证明东西确实是我的。
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准（Given / When / Then）
+      value: |
+        - Given ...
+          When ...
+          Then ...
+    validations:
+      required: true
+  - type: dropdown
+    id: increment
+    attributes:
+      label: 归属增量
+      options: ["v0.1（迭代 1）", "v0.2（迭代 2）", "v0.3", 未定]
+    validations:
+      required: true
+  - type: input
+    id: req-id
+    attributes:
+      label: 关联需求条目
+      description: 对应 SRS 中的编号，便于追溯
+      placeholder: 例如 REQ-F-013
+  - type: input
+    id: uc-id
+    attributes:
+      label: 关联用例编号
+      placeholder: 例如 UC-15

@@ -1,0 +1,57 @@
+@startuml sd03-handover
+' ============================================================
+' SD-03 交接码核销
+' 对应 SRS §4.4、详细设计 构件 3
+' 重点：幂等核销、过期判定、连续输错锁定
+' ============================================================
+title SD-03 交接码核销
+
+skinparam defaultFontName "Microsoft YaHei"
+skinparam shadowing false
+skinparam sequence {
+  ArrowColor #A65E2E
+  LifeLineBorderColor #A65E2E
+  ParticipantBackgroundColor #FFF9F0
+  ParticipantBorderColor #A65E2E
+}
+
+actor "任一方\n（失主/拾取者）" as U
+participant "API" as API
+participant "交接服务\nclaims.handover" as SVC
+database "DB" as DB
+participant "审计" as AUDIT
+
+U -> API : POST /claims/{id}/handover {code}
+API -> SVC : verify_and_consume(claim_id, code, actor)
+SVC -> DB : BEGIN IMMEDIATE
+SVC -> DB : SELECT handover_token WHERE claim_id=?
+alt 无 token 或 actor 非相关方
+  SVC --> API : 403 FORBIDDEN（不泄露是否存在）
+else token.consumed_at 非空
+  SVC --> API : 409 HANDOVER_CONSUMED
+else now > expires_at
+  SVC --> API : 410 HANDOVER_EXPIRED
+else 码哈希不匹配
+  SVC -> DB : 失败次数 +1
+  alt 失败次数 >= 5
+    SVC -> DB : 锁定 30 分钟
+    SVC --> API : 423 HANDOVER_LOCKED
+  else
+    SVC --> API : 403 FORBIDDEN
+  end
+else 校验通过
+  SVC -> DB : UPDATE handover_token SET consumed_at=?, consumed_by=?\nWHERE id=? AND consumed_at IS NULL
+  alt rowcount == 0（并发核销）
+    SVC -> DB : ROLLBACK
+    SVC --> API : 409 HANDOVER_CONSUMED
+  else
+    SVC -> DB : UPDATE claim SET status='completed'
+    SVC -> DB : UPDATE item SET status='handed_over'
+    SVC -> DB : INSERT item_status_log、COMMIT
+    SVC -> AUDIT : log(handover.complete)
+    SVC --> API : 200 {status: completed}
+    API --> U : 200 交接完成
+  end
+end
+
+@enduml

@@ -1,0 +1,64 @@
+@startuml usecase-v01
+' ============================================================
+' 校园失物招领与认领审核系统 · v0.1（迭代 1）主链路用例图
+' 用途：课堂讲解（8 分钟）与 v0.1 验收
+' 完整用例见 docs/02-需求规约/用例清单.md
+' ============================================================
+title v0.1 主链路：发布 → 检索 → 申请认领 → 审核 → 交接
+
+skinparam shadowing false
+skinparam defaultFontName "Microsoft YaHei"
+skinparam usecase {
+  BackgroundColor #F7FBFF
+  BorderColor #2C5F8A
+}
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #2C5F8A
+}
+left to right direction
+
+actor "学生（失主）" as STU
+actor "拾取者" as FINDER
+actor "审核员（保卫处）" as REVIEWER
+actor "定时任务" as SCHED <<系统角色>>
+actor "对象存储" as OSS <<外部系统>>
+
+rectangle "校园失物招领与认领审核系统 · v0.1" {
+  usecase "UC-01 通过校园统一身份认证登录" as UC01
+  usecase "UC-05 发布失物信息" as UC05
+  usecase "UC-06 发布招领信息\n并设置核验问题" as UC06
+  usecase "UC-07 上传并遮蔽物品图片" as UC07
+  usecase "UC-10 按分类与地点浏览" as UC10
+  usecase "UC-11 关键词检索与筛选" as UC11
+  usecase "UC-15 提交认领申请" as UC15
+  usecase "UC-17 拾取者初审认领申请" as UC17
+  usecase "UC-18 审核员终审认领申请" as UC18
+  usecase "UC-19 交接码核销" as UC19
+  usecase "UC-21 发布自动过期与关闭" as UC21
+  usecase "NFR-UC-01 并发认领互斥" as NFR01
+  usecase "NFR-UC-02 越权与脱敏拦截" as NFR02
+}
+
+STU --> UC01
+STU --> UC05
+STU --> UC10
+STU --> UC11
+STU --> UC15
+FINDER --> UC06
+FINDER --> UC17
+REVIEWER --> UC18
+SCHED --> UC21
+
+UC05 --> UC07
+UC06 --> UC07
+UC06 --> UC15 : <<include>>
+UC15 --> UC17
+UC17 --> UC18
+UC18 --> UC19
+
+NFR01 --> UC15
+NFR02 --> UC18
+OSS --> UC07
+
+@enduml

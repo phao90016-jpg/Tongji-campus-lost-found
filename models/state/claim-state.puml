@@ -1,0 +1,32 @@
+@startuml claim-state
+' 认领申请 ClaimApplication 状态图 · PlantUML 版
+' 与 docs/03-需求分析模型/状态图与顺序图.md §1.2 一致
+title 认领申请 ClaimApplication 状态图
+
+skinparam defaultFontName "Microsoft YaHei"
+skinparam shadowing false
+
+[*] --> pending_first : 提交申请
+pending_first --> pending_final : 初审建议通过
+pending_first --> need_more : 初审要求补充
+pending_first --> withdrawn : 申请人撤回
+pending_first --> rejected : 同物品已被他人认领
+need_more --> pending_first : 申请人补充材料（仅一次）
+need_more --> rejected : 72 小时未补充
+pending_final --> approved : 终审通过
+pending_final --> rejected : 终审驳回
+pending_final --> need_more : 终审要求补充
+pending_final --> rejected : 同物品已被他人认领
+approved --> completed : 交接码核销
+approved --> expired : 交接码过期且重发用尽
+completed --> [*]
+rejected --> [*]
+withdrawn --> [*]
+expired --> [*]
+
+note right of approved
+  同一时刻同一物品只能有
+  一条 approved / pending_* 记录
+end note
+
+@enduml

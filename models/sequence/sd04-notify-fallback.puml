@@ -1,0 +1,49 @@
+@startuml sd04-notify-fallback
+' ============================================================
+' SD-04 通知投递与失败降级
+' 对应 REQ-F-023、REQ-N-004、详细设计 构件 5
+' 重点：站内必达、通道顺序、每次尝试留痕、重启补扫
+' ============================================================
+title SD-04 通知投递与失败降级
+
+skinparam defaultFontName "Microsoft YaHei"
+skinparam shadowing false
+skinparam sequence {
+  ArrowColor #3F6B3A
+  LifeLineBorderColor #3F6B3A
+  ParticipantBackgroundColor #F3F8F2
+  ParticipantBorderColor #3F6B3A
+}
+
+participant "业务服务" as BIZ
+participant "通知服务\nnotify.enqueue" as NOTIFY
+database "DB" as DB
+participant "调度 tick()" as TICK
+participant "微信适配器" as WX
+participant "邮件适配器" as MAIL
+
+BIZ -> NOTIFY : enqueue(user, type, title, body)
+NOTIFY -> DB : INSERT notification（站内必达）
+NOTIFY -> DB : 按用户已绑定通道 INSERT delivery ×N（pending）
+NOTIFY --> BIZ : 入队完成（不阻塞业务）
+
+== 后台调度 ==
+TICK -> DB : SELECT delivery WHERE status='pending' AND plan_at<=now
+TICK -> DB : UPDATE delivery SET status='sending' WHERE id=? AND status='pending'
+Note right of DB : 乐观锁，重复 tick 不会重复发送
+TICK -> WX : send(msg)
+WX --> TICK : 失败（40001 凭据失效 / 超时）
+TICK -> DB : INSERT delivery_log(wechat, failed, latency)
+TICK -> MAIL : send(msg)
+MAIL --> TICK : 成功
+TICK -> DB : UPDATE delivery SET status='sent'、INSERT delivery_log(email, ok)
+TICK -> DB : UPDATE 其余通道 SET status='skipped'
+Note right of DB : 任一通道成功后其余置 skipped，
+                 避免用户收到两条重复通知
+
+== 服务重启 ==
+TICK -> DB : SELECT delivery WHERE status='sending' AND updated_at < now-5min
+TICK -> DB : UPDATE 回退为 pending → 下一轮补发
+Note right of DB : 补扫不重复：靠 claim_delivery 的条件更新
+
+@enduml

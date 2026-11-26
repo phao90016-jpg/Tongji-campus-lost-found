@@ -1,0 +1,48 @@
+{
+  "probed_at": "2026-11-26T06:18:20+00:00",
+  "python": "3.12.14",
+  "platform": "win32",
+  "P1_fts5": {
+    "rows": 10000,
+    "sqlite_version": "3.53.1",
+    "fts5": true,
+    "indexed": 10000,
+    "hit_校园卡_fts": 966,
+    "hit_校园卡_like": 966,
+    "hit_图书馆_fts": 1593,
+    "hit_图书馆_like": 1593,
+    "hit_耳机_fts": 996,
+    "hit_耳机_like": 996,
+    "fts_p95_ms": 9.78,
+    "like_p95_ms": 31.12,
+    "list_query_p95_ms": 2.11
+  },
+  "P2_concurrency": {
+    "threads": 10,
+    "elapsed_ms": 225.2,
+    "ok": 1,
+    "conflict": 9,
+    "other": 0,
+    "active_rows": 1,
+    "partial_index_supported": true
+  },
+  "P3_image_mask": {
+    "source_kb": 186.7,
+    "original_kb": 29.9,
+    "masked_kb": 8.0,
+    "elapsed_ms": 1267.1,
+    "note": "整图模糊（v0.1 策略），v0.3 改为 OCR 定位后局部模糊"
+  },
+  "P4_plantuml": {
+    "java": "C:\\Program Files\\Common Files\\Oracle\\Java\\javapath\\java.EXE",
+    "jar_exists": false,
+    "note": "jar 不入库；渲染产物已提交到 docs/assets/，评审无需 java"
+  },
+  "not_probed": [
+    "学校统一身份认证（需应用登记与回调备案）",
+    "微信服务号模板消息（需 openid、模板审核与额度）",
+    "对象存储预签名 URL（需部署 MinIO 或云 OSS）",
+    "1 万条真实业务数据的端到端检索（需 v0.1 后端）"
+  ],
+  "elapsed_s": 3.8
+}

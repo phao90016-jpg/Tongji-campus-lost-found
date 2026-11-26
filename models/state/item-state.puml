@@ -1,0 +1,29 @@
+@startuml item-state
+' 发布（失物 / 招领）状态图 · PlantUML 版
+' 与 docs/03-需求分析模型/状态图与顺序图.md §1.1 一致
+title 发布 Item 状态图
+
+skinparam defaultFontName "Microsoft YaHei"
+skinparam shadowing false
+
+[*] --> draft : 保存草稿
+draft --> pending_review : 提交（命中敏感词）
+draft --> published : 提交（校验通过）
+pending_review --> published : 审核通过
+pending_review --> rejected : 审核驳回
+published --> claiming : 终审通过（生成交接码）
+published --> closed : 本人下架
+published --> expired : 超过 60 天
+claiming --> handed_over : 交接码核销
+claiming --> published : 认领失效（码过期且重发用尽）
+handed_over --> closed : 7 天后自动关闭
+rejected --> [*]
+expired --> [*]
+closed --> [*]
+
+note right of claiming
+  进入 claiming 后禁止修改
+  特征描述与图片（防串供）
+end note
+
+@enduml

@@ -1,0 +1,70 @@
+@startuml usecase-v02
+' ============================================================
+' 校园失物招领与认领审核系统 · v0.2（迭代 2）主链路用例图
+' 主题：举报、通知、统计、权限
+' ============================================================
+title v0.2 主链路：举报 · 通知 · 统计 · 权限
+
+skinparam shadowing false
+skinparam defaultFontName "Microsoft YaHei"
+skinparam usecase {
+  BackgroundColor #FFF7F0
+  BorderColor #A65E2E
+}
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #A65E2E
+}
+left to right direction
+
+actor "学生（失主）" as STU
+actor "拾取者" as FINDER
+actor "审核员（保卫处）" as REVIEWER
+actor "系统管理员" as ADMIN
+actor "定时任务" as SCHED <<系统角色>>
+actor "微信服务号" as WX <<外部系统>>
+actor "邮件 SMTP" as MAIL <<外部系统>>
+
+rectangle "校园失物招领与认领审核系统 · v0.2" {
+  usecase "UC-02 申请拾取者认证" as UC02
+  usecase "UC-20 接收认领结果通知" as UC20
+  usecase "UC-22 举报违规发布或冒领" as UC22
+  usecase "UC-23 处置举报" as UC23
+  usecase "UC-24 信用分扣减与账号限制" as UC24
+  usecase "UC-25 提交申诉" as UC25
+  usecase "UC-26 接收站内消息" as UC26
+  usecase "UC-27 绑定通知渠道" as UC27
+  usecase "UC-28 通知投递与失败降级" as UC28
+  usecase "UC-30 查看管理统计看板" as UC30
+  usecase "UC-32 审核工作台队列" as UC32
+  usecase "UC-33 用户与角色管理" as UC33
+  usecase "UC-35 查询审计日志" as UC35
+  usecase "NFR-UC-04 通知幂等与降级" as NFR04
+}
+
+STU --> UC22
+STU --> UC25
+STU --> UC26
+STU --> UC27
+FINDER --> UC02
+FINDER --> UC22
+REVIEWER --> UC23
+REVIEWER --> UC32
+REVIEWER --> UC30
+ADMIN --> UC33
+ADMIN --> UC35
+SCHED --> UC28
+
+UC02 --> UC24
+UC22 --> UC23
+UC23 --> UC24
+UC24 --> UC25
+UC27 --> UC28
+UC28 --> UC20
+UC28 --> UC26
+
+WX --> UC28
+MAIL --> UC28
+NFR04 --> UC28
+
+@enduml

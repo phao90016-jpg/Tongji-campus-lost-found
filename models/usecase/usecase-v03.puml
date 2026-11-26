@@ -1,0 +1,41 @@
+@startuml usecase-v03
+' ============================================================
+' 校园失物招领与认领审核系统 · v0.3 主链路用例图
+' 主题：匹配与开放能力（承接增量）
+' ============================================================
+title v0.3 主链路：匹配与开放能力
+
+skinparam shadowing false
+skinparam defaultFontName "Microsoft YaHei"
+skinparam usecase {
+  BackgroundColor #F3F8F2
+  BorderColor #3F6B3A
+}
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #3F6B3A
+}
+left to right direction
+
+actor "学生（失主）" as STU
+actor "系统管理员" as ADMIN
+actor "保卫处大屏" as SCREEN <<外部系统>>
+
+rectangle "校园失物招领与认领审核系统 · v0.3" {
+  usecase "UC-13 查看相似物品推荐" as UC13
+  usecase "UC-14 订阅关键词并接收提醒" as UC14
+  usecase "UC-31 导出统计报表" as UC31
+  usecase "UC-09 敏感词与证件号校验" as UC09
+  usecase "开放只读 API\n（列表与统计）" as API
+}
+
+STU --> UC13
+STU --> UC14
+ADMIN --> UC31
+ADMIN --> API
+
+UC13 --> UC14
+UC09 --> UC13
+SCREEN --> API
+
+@enduml

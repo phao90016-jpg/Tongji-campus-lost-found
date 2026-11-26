@@ -1,0 +1,71 @@
+@startuml act-uc18-final-review
+' ============================================================
+' UC-18 审核员终审认领申请 · 活动图
+' 对应 SRS §4.3
+' ============================================================
+title UC-18 审核员终审认领申请
+
+skinparam defaultFontName "Microsoft YaHei"
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FFF9F0
+  BorderColor #A65E2E
+  DiamondBackgroundColor #FFFFFF
+}
+skinparam note {
+  BackgroundColor #FFF9E6
+  BorderColor #C9A227
+}
+
+start
+
+:工作台打开待终审申请;
+:查看招领信息、遮蔽图 / 原图入口;
+:查看核验问题与申请人答案、初审意见;
+:查看申请人历史（申请次数、通过率、信用分）;
+
+if (审核人 = 申请人 或 发布人 ?) then (是)
+  :403 FORBIDDEN（不说明原因）;
+  stop
+else (否)
+endif
+
+:选择结论;
+
+if (结论 = 通过 ?) then (是)
+  :BEGIN;
+  :UPDATE claim → approved（乐观锁 version）;
+  if (rowcount = 0 ?) then (是)
+    :ROLLBACK;
+    :409 已被处理，刷新队列;
+    stop
+  else (否)
+  endif
+  :生成 6 位交接码（只存哈希，72h）;
+  :同物品其余进行中申请 → rejected(taken_by_other);
+  :发布 → claiming;
+  :写状态日志 ×2 + 审计;
+  :COMMIT;
+  :通知双方（含交接码明文，仅一次）;
+  if (通知全部失败 ?) then (是)
+    :不阻塞，详情页可查交接码;
+  else (否)
+  endif
+elseif (结论 = 驳回 ?) then (是)
+  :必须选择原因码;
+  :claim → rejected;
+  :通知申请人;
+  if (原因 = 疑似冒领 ?) then (是)
+    :进入举报处置候选;
+    :提示可扣信用分;
+  else (否)
+  endif
+else (要求补充材料)
+  :claim → need_more;
+  :通知申请人 72h 内补充一次;
+endif
+
+:工作台队列移除该条;
+stop
+
+@enduml
