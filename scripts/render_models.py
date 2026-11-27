@@ -1,6 +1,6 @@
 """批量渲染 models/ 下的 PlantUML 源文件到 docs/assets/。
 
-约定（见 CONTRIBUTING.md §8）：
+约定：
 - 源文件：models/<类型>/<名字>.puml
 - 渲染产物：docs/assets/<名字>.png
 - 一图一 PR；改了 .puml 必须同步重渲染并提交 PNG，避免图文不一致

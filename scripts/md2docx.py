@@ -11,7 +11,7 @@
 依赖：python-docx（`pip install python-docx`）
 
 用法：
-    python scripts/md2docx.py docs/00-立项/选题文稿.md docs/00-立项/选题文稿.docx
+    python scripts/md2docx.py docs/02-需求.md docs/02-需求.docx
     python scripts/md2docx.py in.md out.docx --template 参考样式.docx
 """
 import argparse

@@ -1,7 +1,6 @@
 """骨架冒烟测试：保证 CI 从第一次提交起可运行。
 
-业务测试自 v0.1 起按 Issue 交付，编号与 docs/05-测试/测试用例库.md 对齐
-（例如 TC-UC15-01 提交认领申请、TC-NFR01-01 并发认领互斥）。
+业务测试自 v0.1 起按验收编号交付，见 docs/02-需求.md。
 """
 
 from fastapi.testclient import TestClient

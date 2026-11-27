@@ -1,7 +1,7 @@
 """应用入口（骨架）。
 
 当前只提供健康检查与元数据占位，用于验证 CI 与部署链路；
-业务接口自 v0.1 起按 Issue 逐个增量加入（见 docs/04-设计/API契约.md）。
+业务接口自 v0.1 起逐步加入，接口和状态设计见 docs/03-设计.md。
 
 分层约定：
 - 接口层 app/api        只做参数校验、鉴权、错误码映射
@@ -21,7 +21,7 @@ app = FastAPI(
     version="0.0.0",
     description=(
         "骨架阶段：仅健康检查与元数据占位。"
-        "业务接口自 v0.1 起增量交付，契约见 docs/04-设计/API契约.md。"
+        "业务接口自 v0.1 起增量交付，设计见 docs/03-设计.md。"
     ),
 )
 
@@ -37,7 +37,7 @@ def meta() -> dict[str, object]:
     """前端初始化用的元数据占位。
 
     v0.1 起由 services 从 category / location / system_config 表读取并返回，
-    同时给出状态枚举的中文映射（见 docs/04-设计/数据库设计.md §3）。
+    同时给出状态枚举的中文映射（见 docs/03-设计.md）。
     """
     return {
         "app": "campus-lost-found",

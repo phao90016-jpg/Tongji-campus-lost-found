@@ -1,6 +1,6 @@
 @startuml claim-state
 ' 认领申请 ClaimApplication 状态图 · PlantUML 版
-' 与 docs/03-需求分析模型/状态图与顺序图.md §1.2 一致
+' 与 docs/03-设计.md 的认领状态一致
 title 认领申请 ClaimApplication 状态图
 
 skinparam defaultFontName "Microsoft YaHei"

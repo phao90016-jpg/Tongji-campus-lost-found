@@ -1,6 +1,6 @@
 @startuml item-state
 ' 发布（失物 / 招领）状态图 · PlantUML 版
-' 与 docs/03-需求分析模型/状态图与顺序图.md §1.1 一致
+' 与 docs/03-设计.md 的发布状态一致
 title 发布 Item 状态图
 
 skinparam defaultFontName "Microsoft YaHei"
